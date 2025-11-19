@@ -53,33 +53,28 @@ export async function POST(request: NextRequest) {
     const $ = cheerio.load(html)
 
     // Extract News metadata
-    const title =
-      $('meta[property="og:title"]').attr('content') ||
+    const title = $('meta[property="og:title"]').attr('content') ||
       $('meta[name="twitter:title"]').attr('content') ||
       $('title').text() ||
       'Untitled Article'
 
-    const imageUrl =
-      $('meta[property="og:image"]').attr('content') ||
+    const imageUrl = $('meta[property="og:image"]').attr('content') ||
       $('meta[name="twitter:image"]').attr('content') ||
       $('meta[property="og:image:url"]').attr('content') ||
       ''
 
-    let author =
-      $('meta[name="author"]').attr('content') ||
+    let author = $('meta[name="author"]').attr('content') ||
       $('meta[property="article:author"]').attr('content') ||
       $('.author').first().text().trim() ||
       $('[rel="author"]').first().text().trim() ||
       ''
 
-    let date =
-      $('meta[property="article:published_time"]').attr('content') ||
+    let date = $('meta[property="article:published_time"]').attr('content') ||
       $('meta[name="publish_date"]').attr('content') ||
       $('time').first().attr('datetime') ||
       ''
 
-    let source =
-      $('meta[property="og:site_name"]').attr('content') ||
+    let source = $('meta[property="og:site_name"]').attr('content') ||
       $('meta[name="application-name"]').attr('content') ||
       ''
 
@@ -187,7 +182,7 @@ export async function POST(request: NextRequest) {
     // Clean up text
     const cleanTitle = title.length > 150 ? title.substring(0, 150) + '...' : title
     const cleanAuthor = author.toUpperCase()
-    const cleanDate = date.toUpperCase()
+    const cleanDate = formattedDate.toUpperCase()
     const cleanSource = source.toUpperCase()
 
     // Dynamic font size for title
@@ -205,7 +200,6 @@ export async function POST(request: NextRequest) {
       maxCharsPerLine = 30
     }
 
-    // Calculate estimated text height
     // Split title into lines
     const titleLines = cleanTitle.split(' ').reduce((lines, word) => {
       const currentLine = lines[lines.length - 1];
@@ -217,51 +211,80 @@ export async function POST(request: NextRequest) {
       return lines;
     }, [''] as string[]);
 
-    // Calculate required height for text area
-    // Top padding (50) + Title lines * line height + Spacing to separator (20) + Separator (2) + Spacing to metadata (40) + Metadata lines (approx 50) + Bottom padding (40)
-    const estimatedTextContentHeight = 50 + (titleLines.length * lineHeight) + 20 + 2 + 40 + 50 + 40;
+    // Calculate required height for text area with tighter spacing
+    const topPadding = 20;
+    const titleStartY = topPadding + (titleFontSize * 0.85); // Use font size instead of line height for first baseline
+    const titleBlockHeight = (titleLines.length - 1) * lineHeight + (titleFontSize * 0.85); // Height from first to last baseline
+    const separatorSpacing = 12;
+    const separatorHeight = 2;
+    const metadataSpacing = 15;
+    const metadataLineHeight = 18;
+    const metadataBlockHeight = metadataLineHeight * 2;
+    const bottomPadding = 20;
 
-    // Ensure minimum text height of 30% (300px)
-    const textHeight = Math.max(300, estimatedTextContentHeight);
+    const textHeight = Math.round(topPadding + titleBlockHeight + separatorSpacing + separatorHeight + metadataSpacing + metadataBlockHeight + bottomPadding);
     const imageHeight = totalHeight - textHeight;
 
-    // Process and resize the article image
+    // Process and resize the article image to cover the FULL card
     const processedImage = await sharp(imageBuffer)
-      .resize(width, imageHeight, {
+      .resize(width, totalHeight, {
         fit: 'cover',
         position: 'center',
       })
       .toBuffer()
 
-    // Create text overlay SVG
+    // Create text overlay SVG with calculated positions
+    const separatorY = titleStartY + (titleLines.length - 1) * lineHeight + separatorSpacing;
+    const metadataStartY = separatorY + separatorHeight + metadataSpacing;
+
     const textSvg = `
-      <svg width="${width}" height="${textHeight}">
-        <rect width="${width}" height="${textHeight}" fill="white"/>
+      <svg width="${width}" height="${textHeight}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="${width}" height="${textHeight}" fill="rgba(255, 255, 255, 0.85)"/>
         
         <!-- Title -->
-        <text x="50" y="50" font-family="Arial, sans-serif" font-size="${titleFontSize}" font-weight="bold" fill="#111">
+        <text 
+          x="40" 
+          font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+          font-size="${titleFontSize}" 
+          font-weight="700" 
+          fill="#000000"
+          letter-spacing="-0.02em"
+        >
           ${titleLines.map((line, i) =>
-      `<tspan x="50" dy="${i === 0 ? 0 : lineHeight}">${line}</tspan>`
+      `<tspan x="40" y="${titleStartY + (i * lineHeight)}">${line}</tspan>`
     ).join('')}
         </text>
         
-        <!-- Separator -->
-        <line x1="50" y1="${50 + (titleLines.length * lineHeight) + 20}" x2="${width - 50}" y2="${50 + (titleLines.length * lineHeight) + 20}" stroke="#e5e5e5" stroke-width="2"/>
+        <!-- Separator Line -->
+        <line x1="40" y1="${separatorY}" x2="${width - 40}" y2="${separatorY}" stroke="#E5E5E5" stroke-width="2"/>
         
         <!-- Metadata -->
-        <text x="50" y="${50 + (titleLines.length * lineHeight) + 60}" font-family="Arial, sans-serif" font-size="18" font-weight="600" fill="#666" letter-spacing="0.5">
-          ${cleanAuthor}
-        </text>
-        <text x="50" y="${50 + (titleLines.length * lineHeight) + 85}" font-family="Arial, sans-serif" font-size="14" font-weight="500" fill="#999">
-          ${cleanSource} • ${cleanDate}
-        </text>
+        <text 
+          x="40" 
+          y="${metadataStartY}" 
+          font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+          font-size="13" 
+          font-weight="600" 
+          fill="#666666" 
+          letter-spacing="0.05em"
+        >${cleanAuthor}</text>
+        
+        <text 
+          x="40" 
+          y="${metadataStartY + metadataLineHeight}" 
+          font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+          font-size="13" 
+          font-weight="500" 
+          fill="#999999" 
+          letter-spacing="0.03em"
+        >${cleanSource} • ${cleanDate}</text>
       </svg>
     `
 
     // Rounded corners mask
     const maskSvg = `
-      <svg width="${width}" height="${totalHeight}">
-        <rect x="0" y="0" width="${width}" height="${totalHeight}" rx="40" ry="40" fill="white"/>
+      <svg width="${width}" height="${totalHeight}" xmlns="http://www.w3.org/2000/svg">
+        <rect x="0" y="0" width="${width}" height="${totalHeight}" rx="16" ry="16" fill="white"/>
       </svg>
     `
 
@@ -275,9 +298,20 @@ export async function POST(request: NextRequest) {
       },
     })
       .composite([
-        { input: processedImage, top: 0, left: 0 },
-        { input: Buffer.from(textSvg), top: imageHeight, left: 0 },
-        { input: Buffer.from(maskSvg), blend: 'dest-in' }
+        {
+          input: processedImage,
+          top: 0,
+          left: 0
+        },
+        {
+          input: Buffer.from(textSvg),
+          top: imageHeight,
+          left: 0
+        },
+        {
+          input: Buffer.from(maskSvg),
+          blend: 'dest-in'
+        }
       ])
       .png()
       .toBuffer()
@@ -287,7 +321,13 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       image: base64Image,
-      metadata: { title, author, date, source, imageUrl }
+      metadata: {
+        title,
+        author,
+        date: formattedDate,
+        source,
+        imageUrl
+      }
     })
 
   } catch (error) {
