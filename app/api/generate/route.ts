@@ -1,17 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 import sharp from 'sharp'
-import fs from 'fs'
-import path from 'path'
-
-// Load fonts as base64 for embedding in SVG
-const fontBoldPath = path.join(process.cwd(), 'public', 'fonts', 'Inter-Bold.ttf')
-const fontSemiBoldPath = path.join(process.cwd(), 'public', 'fonts', 'Inter-SemiBold.ttf')
-const fontMediumPath = path.join(process.cwd(), 'public', 'fonts', 'Inter-Medium.ttf')
-
-const fontBoldBase64 = fs.readFileSync(fontBoldPath).toString('base64')
-const fontSemiBoldBase64 = fs.readFileSync(fontSemiBoldPath).toString('base64')
-const fontMediumBase64 = fs.readFileSync(fontMediumPath).toString('base64')
+import { renderTextBox } from './textRenderer'
 
 export async function POST(request: NextRequest) {
   try {
@@ -302,75 +292,22 @@ export async function POST(request: NextRequest) {
         })
         .toBuffer()
 
-      // Create text overlay SVG with calculated positions (solid white background)
-      const separatorY = titleStartY + (titleLines.length - 1) * lineHeight + separatorSpacing
-      const metadataStartY = separatorY + separatorHeight + metadataSpacing
-
-      textSvg = `
-        <svg width="${width}" height="${textHeight}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <style>
-              @font-face {
-                font-family: 'Inter';
-                font-weight: 700;
-                src: url(data:font/truetype;charset=utf-8;base64,${fontBoldBase64}) format('truetype');
-              }
-              @font-face {
-                font-family: 'Inter';
-                font-weight: 600;
-                src: url(data:font/truetype;charset=utf-8;base64,${fontSemiBoldBase64}) format('truetype');
-              }
-              @font-face {
-                font-family: 'Inter';
-                font-weight: 500;
-                src: url(data:font/truetype;charset=utf-8;base64,${fontMediumBase64}) format('truetype');
-              }
-            </style>
-          </defs>
-          <rect width="${width}" height="${textHeight}" fill="#FFFFFF"/>
-          
-          <!-- Title -->
-          <text 
-            x="40" 
-            font-family="Inter" 
-            font-size="${titleFontSize}" 
-            font-weight="700" 
-            fill="#000000"
-            letter-spacing="-0.02em"
-          >
-            ${titleLines.map((line, i) =>
-        `<tspan x="40" y="${titleStartY + (i * lineHeight)}">${line}</tspan>`
-      ).join('')}
-          </text>
-          
-          <!-- Separator Line -->
-          <line x1="40" y1="${separatorY}" x2="${width - 40}" y2="${separatorY}" stroke="#E5E5E5" stroke-width="2"/>
-          
-          ${metadataBlockHeight > 0 ? `<!-- Metadata -->
-          ${includeAuthor ? `<text 
-            x="40" 
-            font-family="Inter" 
-            font-size="13" 
-            font-weight="600" 
-            fill="#666666" 
-            letter-spacing="0.05em"
-          >
-            ${authorLines.map((line, i) =>
-        `<tspan x="40" y="${metadataStartY + (i * metadataLineHeight)}">${line}</tspan>`
-      ).join('')}
-          </text>` : ''}
-          
-          ${includeDate ? `<text 
-            x="40" 
-            y="${metadataStartY + (includeAuthor ? authorLinesCount * metadataLineHeight : 0)}" 
-            font-family="Inter" 
-            font-size="13" 
-            font-weight="500" 
-            fill="#999999" 
-            letter-spacing="0.03em"
-          >${cleanSource} • ${cleanDate}</text>` : ''}` : ''}
-        </svg>
-      `
+      // Render text using text-to-svg
+      textSvg = renderTextBox({
+        width,
+        height: textHeight,
+        backgroundColor: '#FFFFFF',
+        title: titleLines,
+        titleFontSize,
+        titleLineHeight: lineHeight,
+        author: includeAuthor ? authorLines : undefined,
+        date: includeDate ? cleanDate : undefined,
+        source: cleanSource,
+        topPadding,
+        separatorSpacing,
+        metadataSpacing,
+        metadataLineHeight
+      })
     } else {
       // VERTICAL IMAGE: Full height image with transparent overlay
       processedImage = await sharp(imageBuffer)
@@ -380,75 +317,22 @@ export async function POST(request: NextRequest) {
         })
         .toBuffer()
 
-      // Create text overlay SVG with calculated positions (transparent background)
-      const separatorY = titleStartY + (titleLines.length - 1) * lineHeight + separatorSpacing
-      const metadataStartY = separatorY + separatorHeight + metadataSpacing
-
-      textSvg = `
-        <svg width="${width}" height="${textHeight}" xmlns="http://www.w3.org/2000/svg">
-          <defs>
-            <style>
-              @font-face {
-                font-family: 'Inter';
-                font-weight: 700;
-                src: url(data:font/truetype;charset=utf-8;base64,${fontBoldBase64}) format('truetype');
-              }
-              @font-face {
-                font-family: 'Inter';
-                font-weight: 600;
-                src: url(data:font/truetype;charset=utf-8;base64,${fontSemiBoldBase64}) format('truetype');
-              }
-              @font-face {
-                font-family: 'Inter';
-                font-weight: 500;
-                src: url(data:font/truetype;charset=utf-8;base64,${fontMediumBase64}) format('truetype');
-              }
-            </style>
-          </defs>
-          <rect width="${width}" height="${textHeight}" fill="rgba(255, 255, 255, 0.85)"/>
-          
-          <!-- Title -->
-          <text 
-            x="40" 
-            font-family="Inter" 
-            font-size="${titleFontSize}" 
-            font-weight="700" 
-            fill="#000000"
-            letter-spacing="-0.02em"
-          >
-            ${titleLines.map((line, i) =>
-        `<tspan x="40" y="${titleStartY + (i * lineHeight)}">${line}</tspan>`
-      ).join('')}
-          </text>
-          
-          <!-- Separator Line -->
-          <line x1="40" y1="${separatorY}" x2="${width - 40}" y2="${separatorY}" stroke="#E5E5E5" stroke-width="2"/>
-          
-          ${metadataBlockHeight > 0 ? `<!-- Metadata -->
-          ${includeAuthor ? `<text 
-            x="40" 
-            font-family="Inter" 
-            font-size="13" 
-            font-weight="600" 
-            fill="#666666" 
-            letter-spacing="0.05em"
-          >
-            ${authorLines.map((line, i) =>
-        `<tspan x="40" y="${metadataStartY + (i * metadataLineHeight)}">${line}</tspan>`
-      ).join('')}
-          </text>` : ''}
-          
-          ${includeDate ? `<text 
-            x="40" 
-            y="${metadataStartY + (includeAuthor ? authorLinesCount * metadataLineHeight : 0)}" 
-            font-family="Inter" 
-            font-size="13" 
-            font-weight="500" 
-            fill="#999999" 
-            letter-spacing="0.03em"
-          >${cleanSource} • ${cleanDate}</text>` : ''}` : ''}
-        </svg>
-      `
+      // Render text using text-to-svg with transparent background
+      textSvg = renderTextBox({
+        width,
+        height: textHeight,
+        backgroundColor: 'rgba(255, 255, 255, 0.85)',
+        title: titleLines,
+        titleFontSize,
+        titleLineHeight: lineHeight,
+        author: includeAuthor ? authorLines : undefined,
+        date: includeDate ? cleanDate : undefined,
+        source: cleanSource,
+        topPadding,
+        separatorSpacing,
+        metadataSpacing,
+        metadataLineHeight
+      })
     }
 
     // Rounded corners mask
@@ -475,7 +359,7 @@ export async function POST(request: NextRequest) {
         },
         {
           input: Buffer.from(textSvg),
-          top: imageHeight,
+          top: isHorizontal ? totalHeight - textHeight : totalHeight - textHeight,
           left: 0
         },
         {
