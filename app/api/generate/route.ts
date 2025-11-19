@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 import sharp from 'sharp'
+import fs from 'fs'
+import path from 'path'
+
+// Load fonts as base64 for embedding in SVG
+const fontBoldPath = path.join(process.cwd(), 'public', 'fonts', 'Inter-Bold.ttf')
+const fontSemiBoldPath = path.join(process.cwd(), 'public', 'fonts', 'Inter-SemiBold.ttf')
+const fontMediumPath = path.join(process.cwd(), 'public', 'fonts', 'Inter-Medium.ttf')
+
+const fontBoldBase64 = fs.readFileSync(fontBoldPath).toString('base64')
+const fontSemiBoldBase64 = fs.readFileSync(fontSemiBoldPath).toString('base64')
+const fontMediumBase64 = fs.readFileSync(fontMediumPath).toString('base64')
 
 export async function POST(request: NextRequest) {
   try {
@@ -297,12 +308,31 @@ export async function POST(request: NextRequest) {
 
       textSvg = `
         <svg width="${width}" height="${textHeight}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <style>
+              @font-face {
+                font-family: 'Inter';
+                font-weight: 700;
+                src: url(data:font/truetype;charset=utf-8;base64,${fontBoldBase64}) format('truetype');
+              }
+              @font-face {
+                font-family: 'Inter';
+                font-weight: 600;
+                src: url(data:font/truetype;charset=utf-8;base64,${fontSemiBoldBase64}) format('truetype');
+              }
+              @font-face {
+                font-family: 'Inter';
+                font-weight: 500;
+                src: url(data:font/truetype;charset=utf-8;base64,${fontMediumBase64}) format('truetype');
+              }
+            </style>
+          </defs>
           <rect width="${width}" height="${textHeight}" fill="#FFFFFF"/>
           
           <!-- Title -->
           <text 
             x="40" 
-            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-family="Inter" 
             font-size="${titleFontSize}" 
             font-weight="700" 
             fill="#000000"
@@ -319,7 +349,7 @@ export async function POST(request: NextRequest) {
           ${metadataBlockHeight > 0 ? `<!-- Metadata -->
           ${includeAuthor ? `<text 
             x="40" 
-            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-family="Inter" 
             font-size="13" 
             font-weight="600" 
             fill="#666666" 
@@ -333,7 +363,7 @@ export async function POST(request: NextRequest) {
           ${includeDate ? `<text 
             x="40" 
             y="${metadataStartY + (includeAuthor ? authorLinesCount * metadataLineHeight : 0)}" 
-            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-family="Inter" 
             font-size="13" 
             font-weight="500" 
             fill="#999999" 
@@ -356,12 +386,31 @@ export async function POST(request: NextRequest) {
 
       textSvg = `
         <svg width="${width}" height="${textHeight}" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <style>
+              @font-face {
+                font-family: 'Inter';
+                font-weight: 700;
+                src: url(data:font/truetype;charset=utf-8;base64,${fontBoldBase64}) format('truetype');
+              }
+              @font-face {
+                font-family: 'Inter';
+                font-weight: 600;
+                src: url(data:font/truetype;charset=utf-8;base64,${fontSemiBoldBase64}) format('truetype');
+              }
+              @font-face {
+                font-family: 'Inter';
+                font-weight: 500;
+                src: url(data:font/truetype;charset=utf-8;base64,${fontMediumBase64}) format('truetype');
+              }
+            </style>
+          </defs>
           <rect width="${width}" height="${textHeight}" fill="rgba(255, 255, 255, 0.85)"/>
           
           <!-- Title -->
           <text 
             x="40" 
-            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-family="Inter" 
             font-size="${titleFontSize}" 
             font-weight="700" 
             fill="#000000"
@@ -378,7 +427,7 @@ export async function POST(request: NextRequest) {
           ${metadataBlockHeight > 0 ? `<!-- Metadata -->
           ${includeAuthor ? `<text 
             x="40" 
-            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-family="Inter" 
             font-size="13" 
             font-weight="600" 
             fill="#666666" 
@@ -392,7 +441,7 @@ export async function POST(request: NextRequest) {
           ${includeDate ? `<text 
             x="40" 
             y="${metadataStartY + (includeAuthor ? authorLinesCount * metadataLineHeight : 0)}" 
-            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-family="Inter" 
             font-size="13" 
             font-weight="500" 
             fill="#999999" 
