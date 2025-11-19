@@ -63,22 +63,11 @@ export async function POST(request: NextRequest) {
       $('meta[property="og:image:url"]').attr('content') ||
       ''
 
-    let author = $('meta[name="author"]').attr('content') ||
-      $('meta[property="article:author"]').attr('content') ||
-      $('.author').first().text().trim() ||
-      $('[rel="author"]').first().text().trim() ||
-      ''
+    let author = ''
+    let date = ''
+    let source = ''
 
-    let date = $('meta[property="article:published_time"]').attr('content') ||
-      $('meta[name="publish_date"]').attr('content') ||
-      $('time').first().attr('datetime') ||
-      ''
-
-    let source = $('meta[property="og:site_name"]').attr('content') ||
-      $('meta[name="application-name"]').attr('content') ||
-      ''
-
-    // Try to extract from JSON-LD
+    // Try to extract from JSON-LD first (most reliable)
     const jsonLdScripts = $('script[type="application/ld+json"]')
     jsonLdScripts.each((_, element) => {
       try {
@@ -113,6 +102,28 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    // Fallback to meta tags and other selectors if JSON-LD didn't provide the data
+    if (!author) {
+      author = $('meta[name="author"]').attr('content') ||
+        $('meta[property="article:author"]').attr('content') ||
+        $('[rel="author"]').first().text().trim() ||
+        $('.author').first().text().trim() ||
+        ''
+    }
+
+    if (!date) {
+      date = $('meta[property="article:published_time"]').attr('content') ||
+        $('meta[name="publish_date"]').attr('content') ||
+        $('time').first().attr('datetime') ||
+        ''
+    }
+
+    if (!source) {
+      source = $('meta[property="og:site_name"]').attr('content') ||
+        $('meta[name="application-name"]').attr('content') ||
+        ''
+    }
+
     // Fallback for source if still missing
     if (!source) {
       try {
@@ -139,17 +150,17 @@ export async function POST(request: NextRequest) {
         })
       } else {
         formattedDate = new Date().toLocaleDateString('en-US', {
-          month: 'long',
-          day: 'numeric',
+          month: 'short',
+          day: '2-digit',
           year: 'numeric'
-        })
+        }).replace(/,/g, '').replace(/ /g, '-')
       }
     } catch {
       formattedDate = new Date().toLocaleDateString('en-US', {
-        month: 'long',
-        day: 'numeric',
+        month: 'short',
+        day: '2-digit',
         year: 'numeric'
-      })
+      }).replace(/,/g, '').replace(/ /g, '-')
     }
 
     if (!imageUrl) {
@@ -179,11 +190,34 @@ export async function POST(request: NextRequest) {
     const width = 800
     const totalHeight = 1000
 
+    // Helper to clean author name
+    const cleanAuthorName = (name: string) => {
+      if (!name) return ''
+      return name
+        .replace(/^by\s+/i, '') // Remove "By " prefix
+        .replace(/^author:\s+/i, '') // Remove "Author: " prefix
+        .replace(/\s+/g, ' ') // Collapse multiple spaces
+        .split(/[|•–—]/)[0] // Take first part before separators like |, •, –, —
+        .trim()
+    }
+
     // Clean up text
     const cleanTitle = title.length > 150 ? title.substring(0, 150) + '...' : title
-    const cleanAuthor = author.toUpperCase()
+    const cleanAuthor = cleanAuthorName(author).toUpperCase()
     const cleanDate = formattedDate.toUpperCase()
     const cleanSource = source.toUpperCase()
+
+    // Word wrap author if too long (max ~60 characters per line for size 13 font)
+    const maxAuthorCharsPerLine = 60
+    const authorLines = cleanAuthor.split(' ').reduce((lines, word) => {
+      const currentLine = lines[lines.length - 1];
+      if (currentLine && (currentLine + ' ' + word).length < maxAuthorCharsPerLine) {
+        lines[lines.length - 1] = currentLine + ' ' + word;
+      } else {
+        lines.push(word);
+      }
+      return lines;
+    }, [''] as string[]);
 
     // Dynamic font size for title
     let titleFontSize = 48
@@ -219,67 +253,141 @@ export async function POST(request: NextRequest) {
     const separatorHeight = 2;
     const metadataSpacing = 15;
     const metadataLineHeight = 18;
-    const metadataBlockHeight = metadataLineHeight * 2;
+    const authorLinesCount = authorLines.length;
+    const metadataBlockHeight = (authorLinesCount * metadataLineHeight) + metadataLineHeight; // Author lines + source/date line
     const bottomPadding = 20;
 
     const textHeight = Math.round(topPadding + titleBlockHeight + separatorSpacing + separatorHeight + metadataSpacing + metadataBlockHeight + bottomPadding);
     const imageHeight = totalHeight - textHeight;
 
-    // Process and resize the article image to cover the FULL card
-    const processedImage = await sharp(imageBuffer)
-      .resize(width, totalHeight, {
-        fit: 'cover',
-        position: 'center',
-      })
-      .toBuffer()
+    // Get image metadata to determine orientation
+    const imageMetadata = await sharp(imageBuffer).metadata()
+    const isHorizontal = (imageMetadata.width || 0) > (imageMetadata.height || 0)
 
-    // Create text overlay SVG with calculated positions
-    const separatorY = titleStartY + (titleLines.length - 1) * lineHeight + separatorSpacing;
-    const metadataStartY = separatorY + separatorHeight + metadataSpacing;
+    let processedImage: Buffer
+    let textSvg: string
 
-    const textSvg = `
-      <svg width="${width}" height="${textHeight}" xmlns="http://www.w3.org/2000/svg">
-        <rect width="${width}" height="${textHeight}" fill="rgba(255, 255, 255, 0.85)"/>
-        
-        <!-- Title -->
-        <text 
-          x="40" 
-          font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
-          font-size="${titleFontSize}" 
-          font-weight="700" 
-          fill="#000000"
-          letter-spacing="-0.02em"
-        >
-          ${titleLines.map((line, i) =>
-      `<tspan x="40" y="${titleStartY + (i * lineHeight)}">${line}</tspan>`
-    ).join('')}
-        </text>
-        
-        <!-- Separator Line -->
-        <line x1="40" y1="${separatorY}" x2="${width - 40}" y2="${separatorY}" stroke="#E5E5E5" stroke-width="2"/>
-        
-        <!-- Metadata -->
-        <text 
-          x="40" 
-          y="${metadataStartY}" 
-          font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
-          font-size="13" 
-          font-weight="600" 
-          fill="#666666" 
-          letter-spacing="0.05em"
-        >${cleanAuthor}</text>
-        
-        <text 
-          x="40" 
-          y="${metadataStartY + metadataLineHeight}" 
-          font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
-          font-size="13" 
-          font-weight="500" 
-          fill="#999999" 
-          letter-spacing="0.03em"
-        >${cleanSource} • ${cleanDate}</text>
-      </svg>
-    `
+    if (isHorizontal) {
+      // HORIZONTAL IMAGE: Full image at top, solid text box at bottom
+      const imageHeight = totalHeight - textHeight
+
+      processedImage = await sharp(imageBuffer)
+        .resize(width, imageHeight, {
+          fit: 'cover',
+          position: 'center',
+        })
+        .toBuffer()
+
+      // Create text overlay SVG with calculated positions (solid white background)
+      const separatorY = titleStartY + (titleLines.length - 1) * lineHeight + separatorSpacing
+      const metadataStartY = separatorY + separatorHeight + metadataSpacing
+
+      textSvg = `
+        <svg width="${width}" height="${textHeight}" xmlns="http://www.w3.org/2000/svg">
+          <rect width="${width}" height="${textHeight}" fill="#FFFFFF"/>
+          
+          <!-- Title -->
+          <text 
+            x="40" 
+            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-size="${titleFontSize}" 
+            font-weight="700" 
+            fill="#000000"
+            letter-spacing="-0.02em"
+          >
+            ${titleLines.map((line, i) =>
+        `<tspan x="40" y="${titleStartY + (i * lineHeight)}">${line}</tspan>`
+      ).join('')}
+          </text>
+          
+          <!-- Separator Line -->
+          <line x1="40" y1="${separatorY}" x2="${width - 40}" y2="${separatorY}" stroke="#E5E5E5" stroke-width="2"/>
+          
+          <!-- Metadata -->
+          <text 
+            x="40" 
+            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-size="13" 
+            font-weight="600" 
+            fill="#666666" 
+            letter-spacing="0.05em"
+          >
+            ${authorLines.map((line, i) =>
+        `<tspan x="40" y="${metadataStartY + (i * metadataLineHeight)}">${line}</tspan>`
+      ).join('')}
+          </text>
+          
+          <text 
+            x="40" 
+            y="${metadataStartY + (authorLinesCount * metadataLineHeight)}" 
+            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-size="13" 
+            font-weight="500" 
+            fill="#999999" 
+            letter-spacing="0.03em"
+          >${cleanSource} • ${cleanDate}</text>
+        </svg>
+      `
+    } else {
+      // VERTICAL IMAGE: Full height image with transparent overlay
+      processedImage = await sharp(imageBuffer)
+        .resize(width, totalHeight, {
+          fit: 'cover',
+          position: 'center',
+        })
+        .toBuffer()
+
+      // Create text overlay SVG with calculated positions (transparent background)
+      const separatorY = titleStartY + (titleLines.length - 1) * lineHeight + separatorSpacing
+      const metadataStartY = separatorY + separatorHeight + metadataSpacing
+
+      textSvg = `
+        <svg width="${width}" height="${textHeight}" xmlns="http://www.w3.org/2000/svg">
+          <rect width="${width}" height="${textHeight}" fill="rgba(255, 255, 255, 0.85)"/>
+          
+          <!-- Title -->
+          <text 
+            x="40" 
+            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-size="${titleFontSize}" 
+            font-weight="700" 
+            fill="#000000"
+            letter-spacing="-0.02em"
+          >
+            ${titleLines.map((line, i) =>
+        `<tspan x="40" y="${titleStartY + (i * lineHeight)}">${line}</tspan>`
+      ).join('')}
+          </text>
+          
+          <!-- Separator Line -->
+          <line x1="40" y1="${separatorY}" x2="${width - 40}" y2="${separatorY}" stroke="#E5E5E5" stroke-width="2"/>
+          
+          <!-- Metadata -->
+          <text 
+            x="40" 
+            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-size="13" 
+            font-weight="600" 
+            fill="#666666" 
+            letter-spacing="0.05em"
+          >
+            ${authorLines.map((line, i) =>
+        `<tspan x="40" y="${metadataStartY + (i * metadataLineHeight)}">${line}</tspan>`
+      ).join('')}
+          </text>
+          
+          <text 
+            x="40" 
+            y="${metadataStartY + (authorLinesCount * metadataLineHeight)}" 
+            font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
+            font-size="13" 
+            font-weight="500" 
+            fill="#999999" 
+            letter-spacing="0.03em"
+          >${cleanSource} • ${cleanDate}</text>
+        </svg>
+      `
+    }
 
     // Rounded corners mask
     const maskSvg = `
