@@ -4,7 +4,7 @@ import sharp from 'sharp'
 
 export async function POST(request: NextRequest) {
   try {
-    const { url } = await request.json()
+    const { url, includeAuthor = true, includeDate = true } = await request.json()
 
     if (!url || typeof url !== 'string') {
       return NextResponse.json(
@@ -254,10 +254,23 @@ export async function POST(request: NextRequest) {
     const metadataSpacing = 15;
     const metadataLineHeight = 18;
     const authorLinesCount = authorLines.length;
-    const metadataBlockHeight = (authorLinesCount * metadataLineHeight) + metadataLineHeight; // Author lines + source/date line
+
+    // Calculate metadata block height based on what's included
+    let metadataBlockHeight = 0;
+    if (includeAuthor) {
+      metadataBlockHeight += authorLinesCount * metadataLineHeight;
+    }
+    if (includeDate) {
+      metadataBlockHeight += metadataLineHeight;
+    }
+    // If neither is included, we still need some spacing for the source
+    if (!includeAuthor && !includeDate) {
+      metadataBlockHeight = 0; // No metadata section at all if both are disabled
+    }
+
     const bottomPadding = 20;
 
-    const textHeight = Math.round(topPadding + titleBlockHeight + separatorSpacing + separatorHeight + metadataSpacing + metadataBlockHeight + bottomPadding);
+    const textHeight = Math.round(topPadding + titleBlockHeight + separatorSpacing + separatorHeight + (metadataBlockHeight > 0 ? metadataSpacing + metadataBlockHeight : 0) + bottomPadding);
     const imageHeight = totalHeight - textHeight;
 
     // Get image metadata to determine orientation
@@ -303,8 +316,8 @@ export async function POST(request: NextRequest) {
           <!-- Separator Line -->
           <line x1="40" y1="${separatorY}" x2="${width - 40}" y2="${separatorY}" stroke="#E5E5E5" stroke-width="2"/>
           
-          <!-- Metadata -->
-          <text 
+          ${metadataBlockHeight > 0 ? `<!-- Metadata -->
+          ${includeAuthor ? `<text 
             x="40" 
             font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
             font-size="13" 
@@ -315,17 +328,17 @@ export async function POST(request: NextRequest) {
             ${authorLines.map((line, i) =>
         `<tspan x="40" y="${metadataStartY + (i * metadataLineHeight)}">${line}</tspan>`
       ).join('')}
-          </text>
+          </text>` : ''}
           
-          <text 
+          ${includeDate ? `<text 
             x="40" 
-            y="${metadataStartY + (authorLinesCount * metadataLineHeight)}" 
+            y="${metadataStartY + (includeAuthor ? authorLinesCount * metadataLineHeight : 0)}" 
             font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
             font-size="13" 
             font-weight="500" 
             fill="#999999" 
             letter-spacing="0.03em"
-          >${cleanSource} • ${cleanDate}</text>
+          >${cleanSource} • ${cleanDate}</text>` : ''}` : ''}
         </svg>
       `
     } else {
@@ -362,8 +375,8 @@ export async function POST(request: NextRequest) {
           <!-- Separator Line -->
           <line x1="40" y1="${separatorY}" x2="${width - 40}" y2="${separatorY}" stroke="#E5E5E5" stroke-width="2"/>
           
-          <!-- Metadata -->
-          <text 
+          ${metadataBlockHeight > 0 ? `<!-- Metadata -->
+          ${includeAuthor ? `<text 
             x="40" 
             font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
             font-size="13" 
@@ -374,17 +387,17 @@ export async function POST(request: NextRequest) {
             ${authorLines.map((line, i) =>
         `<tspan x="40" y="${metadataStartY + (i * metadataLineHeight)}">${line}</tspan>`
       ).join('')}
-          </text>
+          </text>` : ''}
           
-          <text 
+          ${includeDate ? `<text 
             x="40" 
-            y="${metadataStartY + (authorLinesCount * metadataLineHeight)}" 
+            y="${metadataStartY + (includeAuthor ? authorLinesCount * metadataLineHeight : 0)}" 
             font-family="Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" 
             font-size="13" 
             font-weight="500" 
             fill="#999999" 
             letter-spacing="0.03em"
-          >${cleanSource} • ${cleanDate}</text>
+          >${cleanSource} • ${cleanDate}</text>` : ''}` : ''}
         </svg>
       `
     }

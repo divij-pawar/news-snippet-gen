@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Checkbox } from '@/components/ui/checkbox'
+import { Label } from '@/components/ui/label'
 import { Download, Loader2, Link2, ImageIcon } from 'lucide-react'
 
 export default function Home() {
@@ -13,6 +15,8 @@ export default function Home() {
   const [error, setError] = useState('')
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
   const [metadata, setMetadata] = useState<{ title: string; author: string; date: string } | null>(null)
+  const [includeAuthor, setIncludeAuthor] = useState(true)
+  const [includeDate, setIncludeDate] = useState(true)
 
   const handleGenerate = async () => {
     if (!url.trim()) {
@@ -36,7 +40,7 @@ export default function Home() {
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url, includeAuthor, includeDate }),
       })
 
       const data = await response.json()
@@ -116,6 +120,38 @@ export default function Home() {
                   'Generate'
                 )}
               </Button>
+            </div>
+
+            {/* Options */}
+            <div className="flex flex-wrap gap-4">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="include-author"
+                  checked={includeAuthor}
+                  onCheckedChange={(checked) => setIncludeAuthor(checked as boolean)}
+                  disabled={loading}
+                />
+                <Label
+                  htmlFor="include-author"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Include Author
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="include-date"
+                  checked={includeDate}
+                  onCheckedChange={(checked) => setIncludeDate(checked as boolean)}
+                  disabled={loading}
+                />
+                <Label
+                  htmlFor="include-date"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                >
+                  Include Date
+                </Label>
+              </div>
             </div>
 
             {error && (
