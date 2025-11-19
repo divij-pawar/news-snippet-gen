@@ -24,7 +24,7 @@ interface TextBoxOptions {
 }
 
 export function renderTextBox(options: TextBoxOptions): string {
-    let currentY = options.topPadding + (options.titleFontSize * 0.85)
+    let currentY = options.topPadding
 
     // Generate title SVG paths
     const titlePaths = options.title.map((line, i) => {
@@ -33,7 +33,7 @@ export function renderTextBox(options: TextBoxOptions): string {
             x: 40,
             y: y,
             fontSize: options.titleFontSize,
-            anchor: 'left top',
+            anchor: 'left baseline',
             attributes: { fill: '#000000' }
         })
         // Extract just the path element
@@ -56,7 +56,7 @@ export function renderTextBox(options: TextBoxOptions): string {
                 x: 40,
                 y: y,
                 fontSize: 13,
-                anchor: 'left top',
+                anchor: 'left baseline',
                 attributes: { fill: '#666666' }
             })
             const pathMatch = svg.match(/<path[^>]*d="([^"]*)"[^>]*\/?>/)
@@ -73,7 +73,7 @@ export function renderTextBox(options: TextBoxOptions): string {
             x: 40,
             y: currentY,
             fontSize: 13,
-            anchor: 'left top',
+            anchor: 'left baseline',
             attributes: { fill: '#999999' }
         })
         const pathMatch = svg.match(/<path[^>]*d="([^"]*)"[^>]*\/?>/)
