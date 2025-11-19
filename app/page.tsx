@@ -12,6 +12,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [generatedImage, setGeneratedImage] = useState<string | null>(null)
+  const [metadata, setMetadata] = useState<{ title: string; author: string; date: string } | null>(null)
 
   const handleGenerate = async () => {
     if (!url.trim()) {
@@ -29,6 +30,7 @@ export default function Home() {
     setLoading(true)
     setError('')
     setGeneratedImage(null)
+    setMetadata(null)
 
     try {
       const response = await fetch('/api/generate', {
@@ -44,6 +46,7 @@ export default function Home() {
       }
 
       setGeneratedImage(data.image)
+      setMetadata(data.metadata)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An unexpected error occurred')
     } finally {

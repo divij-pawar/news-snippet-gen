@@ -1,2 +1,3 @@
 # News Snippet Generator
-A React.js website to generate a shareable image from a given news article link
+A Next js website to generate a shareable square image from a given news article link
+100% vibe coded with v0 by vercel and Antigravity by Google
