@@ -82,7 +82,7 @@ export default function Home() {
             Transform Articles into Shareable Graphics
           </h1>
           <p className="mx-auto max-w-2xl text-lg text-muted-foreground text-pretty">
-            Paste any news article URL and instantly generate a beautiful, square social media graphic with the article's image, title, and author.
+            Paste any news article URL and instantly generate a beautiful social media graphic with the article's image, title, and author.
           </p>
         </div>
 

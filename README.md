@@ -1,6 +1,6 @@
 # News Snippet Generator
 
-Generate shareable square-image snippets from news article links.
+Generate shareable image snippets from news article links.
 
 ## What it does
 - Takes a news article URL  

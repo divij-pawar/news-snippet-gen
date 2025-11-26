@@ -8,7 +8,7 @@ const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: 'News to Image Converter | Transform Articles into Graphics',
-  description: 'Convert any news article URL into a beautiful, shareable square image graphic with the article image, title, and author.',
+  description: 'Convert any news article URL into a beautiful, shareable image graphic with the article image, title, and author.',
   generator: 'v0.app',
   icons: {
     icon: [
